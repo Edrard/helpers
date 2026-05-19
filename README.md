@@ -192,20 +192,6 @@ URL helpers.
 | `encodestring(string $st, string $tran = 'en'): string` | Transliterates text for URL helpers. |
 | `hypnes_ru_url(string $string): string` | Builds a hyphenated Cyrillic URL slug. |
 
-## Development Standards
-
-This package follows the project standards agreed during development:
-
-- PSR-4 autoloading.
-- PSR-12-style formatting.
-- PHP 8.2+ type declarations for public APIs.
-- PHPDoc for public APIs.
-- Small `final` utility classes.
-- `public static` methods for helper behavior.
-- KISS, DRY, and YAGNI.
-- SOLID where it helps without over-engineering.
-- Global functions only for short debug helpers.
-
 ## License
 
 MIT.
