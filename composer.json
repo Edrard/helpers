@@ -1,0 +1,23 @@
+{
+    "name": "edrard/helpers",
+    "description": "Small helper utilities for PHP projects",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Edrard",
+            "email": "demonand@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Edrard\\Helpers\\": "src/"
+        },
+        "files": [
+            "functions/debug.php"
+        ]
+    }
+}
