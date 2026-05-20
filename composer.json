@@ -12,6 +12,9 @@
     "require": {
         "php": ">=8.2"
     },
+    "require-dev": {
+        "phpunit/phpunit": "^11"
+    },
     "autoload": {
         "psr-4": {
             "Edrard\\Helpers\\": "src/"
@@ -19,5 +22,8 @@
         "files": [
             "functions/debug.php"
         ]
+    },
+    "scripts": {
+        "test": "@php vendor/bin/phpunit"
     }
 }

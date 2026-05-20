@@ -48,11 +48,11 @@ final class Arr
     }
 
     /**
-     * Search for a value in a nested array and return the first matching key.
+     * Search for a value in a nested array and return the containing top-level key.
      *
      * @param mixed $needle Value to search for.
      * @param array<int|string, mixed> $haystack Array to search in.
-     * @return int|string|false First matching key, or false when not found.
+     * @return int|string|false Top-level key that directly contains the value or a nested match, or false when not found.
      */
     public static function array_recursive_search(mixed $needle, array $haystack): int|string|false
     {
