@@ -196,17 +196,28 @@ final class Arr
      * @param array<int|string, mixed> $array Array passed by reference.
      * @param int|string $name Existing key name.
      * @param int|string $rename New key name.
+     * @param bool $rewrite Whether to overwrite an existing target key.
      * @return array<int|string, mixed> Array with the renamed key.
      */
-    public static function array_rename(array &$array, int|string $name, int|string $rename): array
+    public static function array_rename(
+        array &$array,
+        int|string $name,
+        int|string $rename,
+        bool $rewrite = true
+    ): array
     {
-        foreach ($array as $key => $val) {
-            if ($key == $name) {
-                $array[$rename] = $val;
-                unset($array[$name]);
-                break;
-            }
+        if (!array_key_exists($name, $array) || $name === $rename) {
+            return $array;
         }
+
+        if (array_key_exists($rename, $array) && !$rewrite) {
+            throw new \InvalidArgumentException('Target array key already exists.');
+        }
+
+        $value = $array[$name];
+        unset($array[$name]);
+        $array[$rename] = $value;
+
         return $array;
     }
 
@@ -351,22 +362,26 @@ final class Arr
     }
 
     /**
-     * Sum all numeric values in a nested array.
+     * Sum numeric values in a nested array.
+     *
+     * Numeric strings are included, while non-numeric values are ignored.
      *
      * @param array<int|string, mixed> $array Source array.
      * @return int|float Sum of all nested numeric values.
      */
     public static function array_sum_recursive(array $array): int|float
     {
-        $sum = array(0);
+        $sum = 0;
+
         foreach ($array as $value) {
             if (is_array($value)) {
-                $sum[] = self::array_sum_recursive($value);
-            } else {
-                $sum[] = $value;
+                $sum += self::array_sum_recursive($value);
+            } elseif (is_numeric($value)) {
+                $sum += $value;
             }
         }
-        return array_sum($sum);
+
+        return $sum;
     }
 
     /**
