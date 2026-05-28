@@ -12,34 +12,43 @@ final class Url
      */
     public static function url_unparse(array $parsed): string
     {
-        $get = static function (string $key) use ($parsed): mixed {
-            return $parsed[$key] ?? null;
-        };
+        $scheme = (string) ($parsed['scheme'] ?? '');
+        $host = (string) ($parsed['host'] ?? '');
+        $path = (string) ($parsed['path'] ?? '');
+        $query = (string) ($parsed['query'] ?? '');
+        $fragment = (string) ($parsed['fragment'] ?? '');
+        $port = $parsed['port'] ?? null;
+        $user = $parsed['user'] ?? null;
+        $pass = $parsed['pass'] ?? null;
 
-        $pass = $get('pass');
-        $path = (string) $get('path');
-        $user = $get('user');
-        $userinfo = $pass !== null ? $user . ':' . $pass : $user;
-        $port = $get('port');
-        $scheme = (string) $get('scheme');
-        $query = (string) $get('query');
-        $fragment = (string) $get('fragment');
-        $authority = ($userinfo !== null ? $userinfo . '@' : '')
-            . (string) $get('host')
-            . ($port ? ':' . $port : '');
+        $userinfo = '';
 
-        $return = $scheme !== '' ? $scheme . ':' : '';
-        $return .= $authority !== '' ? '//' . $authority : '';
+        if ($user !== null) {
+            $userinfo = (string) $user;
 
-        if ($path !== '' && substr($path, 0, 1) !== '/') {
-            $return .= '/';
+            if ($pass !== null) {
+                $userinfo .= ':' . $pass;
+            }
+
+            $userinfo .= '@';
         }
 
-        $return .= $path;
-        $return .= $query !== '' ? '?' . $query : '';
-        $return .= $fragment !== '' ? '#' . $fragment : '';
+        $authority = $host !== ''
+            ? $userinfo . $host . ($port !== null ? ':' . $port : '')
+            : '';
 
-        return $return;
+        $url = $scheme !== '' ? $scheme . ':' : '';
+        $url .= $authority !== '' ? '//' . $authority : '';
+
+        if ($path !== '' && $authority !== '' && !str_starts_with($path, '/')) {
+            $url .= '/';
+        }
+
+        $url .= $path;
+        $url .= $query !== '' ? '?' . $query : '';
+        $url .= $fragment !== '' ? '#' . $fragment : '';
+
+        return $url;
     }
 
     /**
@@ -50,27 +59,56 @@ final class Url
      */
     public static function url_unparse_proxy(array $proxy): string
     {
-        return $proxy['proxy'] . ':' . $proxy['port'];
+        if (!array_key_exists('proxy', $proxy) || !array_key_exists('port', $proxy)) {
+            throw new \InvalidArgumentException('Proxy and port are required.');
+        }
+
+        return (string) $proxy['proxy'] . ':' . (string) $proxy['port'];
     }
 
     /**
-     * Add a base URL when the given URL is relative.
+     * Fix a URL by applying the given protocol and optional domain.
      *
      * @param string $url URL to fix.
-     * @param string $add Base URL to prepend for relative URLs.
+     * @param string $protocol Protocol to apply.
+     * @param string $domain Optional domain to apply.
      * @return string Fixed URL.
      */
-    public static function fix_url(string $url, string $add): string
+    public static function fix_url(string $url, string $protocol = 'http', string $domain = ''): string
     {
-        if (strtolower(substr($url, 0, 2)) !== '//') {
-            if (strtolower(substr($url, 0, 4)) !== 'http' && strtolower(substr($url, 0, 5)) !== 'https') {
-                $url = $add . $url;
-            }
-        } elseif (strtolower(substr($url, 0, 2)) === '//') {
-            $url = 'http:' . $url;
+        $url = trim($url);
+        $protocol = trim($protocol);
+        $domain = trim($domain);
+
+        if ($protocol === '') {
+            throw new \InvalidArgumentException('URL protocol cannot be empty.');
         }
 
-        return $url;
+        if (str_starts_with($url, '//')) {
+            $url = $protocol . ':' . $url;
+        }
+
+        $parts = parse_url($url);
+
+        if ($parts === false) {
+            throw new \InvalidArgumentException('Invalid URL.');
+        }
+
+        if (!isset($parts['scheme'])) {
+            if ($domain === '') {
+                return $url;
+            }
+
+            return $protocol . '://' . trim($domain, '/') . '/' . ltrim($url, '/');
+        }
+
+        $parts['scheme'] = $protocol;
+
+        if ($domain !== '') {
+            $parts['host'] = trim($domain, '/');
+        }
+
+        return self::url_unparse($parts);
     }
 
     /**
@@ -83,35 +121,30 @@ final class Url
      */
     public static function url_title(string $str, string $separator = '-', bool $lowercase = true): string
     {
-        if ($separator === 'dash') {
-            $separator = '-';
-        } elseif ($separator === 'underscore') {
-            $separator = '_';
+        $separator = match ($separator) {
+            'dash' => '-',
+            'underscore' => '_',
+            default => $separator,
+        };
+
+        if ($separator === '') {
+            throw new \InvalidArgumentException('URL title separator cannot be empty.');
         }
 
-        $q_separator = preg_quote($separator, '#');
-        $trans = [
-            '&.+?;' => '',
-            '[^a-z0-9 _-]' => '',
-            '\\s+' => $separator,
-            '(' . $q_separator . ')+' => $separator,
-        ];
+        $quotedSeparator = preg_quote($separator, '#');
 
         $str = strip_tags($str);
+        $str = preg_replace('#&.+?;#i', '', $str) ?? '';
+        $str = preg_replace('#[^a-z0-9 _-]#i', '', $str) ?? '';
+        $str = preg_replace('#\s+#u', $separator, $str) ?? '';
+        $str = preg_replace('#(?:' . $quotedSeparator . ')+#u', $separator, $str) ?? '';
+        $str = preg_replace('#^(?:' . $quotedSeparator . ')+|(?:' . $quotedSeparator . ')+$#u', '', $str) ?? '';
 
-        foreach ($trans as $key => $val) {
-            $str = preg_replace('#' . $key . '#i', $val, $str);
-        }
-
-        if ($lowercase) {
-            $str = strtolower($str);
-        }
-
-        return trim($str, $separator);
+        return $lowercase ? strtolower($str) : $str;
     }
 
     /**
-     * Transliterate text for URL helpers.
+     * Transliterate and HTML-encode text for legacy URL helpers.
      *
      * @param string $st Source text.
      * @param string $tran Direction, usually en.
@@ -130,6 +163,6 @@ final class Url
      */
     public static function hypnes_ru_url(string $string): string
     {
-        return self::url_title(trim(self::encodestring($string, 'en')));
+        return self::url_title(Str::translit_string(trim($string)));
     }
 }
