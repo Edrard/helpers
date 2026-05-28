@@ -12,20 +12,33 @@ final class Shell
      */
     public static function shell_command_exist(string $cmd): bool
     {
-        $returnVal = trim((string) shell_exec('type ' . escapeshellarg($cmd)));
+        if ($cmd === '') {
+            return false;
+        }
 
-        return $returnVal !== '';
+        $checker = PHP_OS_FAMILY === 'Windows'
+            ? 'where ' . escapeshellarg($cmd)
+            : 'command -v ' . escapeshellarg($cmd);
+
+        exec($checker, $output, $exitCode);
+
+        return $exitCode === 0 && $output !== [];
     }
 
     /**
-     * Execute a shell command with one escaped parameter.
+     * Execute a trusted shell command with one escaped parameter.
      *
-     * @param string $command Command to run.
+     * The command must be trusted and predefined. Only the parameter is escaped.
+     *
+     * @param string $command Trusted command to run.
      * @param string $param Parameter passed to the command.
-     * @return void
+     * @param bool $returnOutput Whether to return command output instead of exit code.
+     * @return int|array<int, string> Exit code by default, or output lines when requested.
      */
-    public static function shell_command_run(string $command, string $param): void
+    public static function shell_command_run(string $command, string $param, bool $returnOutput = false): int|array
     {
-        exec($command . ' ' . escapeshellarg($param));
+        exec($command . ' ' . escapeshellarg($param), $output, $exitCode);
+
+        return $returnOutput ? $output : $exitCode;
     }
 }

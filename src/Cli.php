@@ -16,19 +16,35 @@ final class Cli
         string $text = "Are you sure you want to do this?  Type 'yes' to continue: \n",
         string $thanks = "\nThank you, continuing...\n",
         string $error = "Exiting...\n"
-    ): void {
+    ): void
+    {
         echo $text;
 
         $handle = fopen('php://stdin', 'r');
-        $line = fgets($handle);
-        preg_match('/((yes)|y)$/i', (string) $line, $output_array);
 
-        if ($output_array === []) {
+        if ($handle === false) {
+            throw new \RuntimeException('Unable to read from STDIN.');
+        }
+
+        $line = fgets($handle);
+        fclose($handle);
+
+        if (!self::is_confirmed_answer((string) $line)) {
             echo $error;
             exit(1);
         }
 
-        fclose($handle);
         echo $thanks;
+    }
+
+    /**
+     * Check whether a CLI answer confirms the action.
+     *
+     * @param string $answer User answer.
+     * @return bool True when the answer is "yes" or "y".
+     */
+    public static function is_confirmed_answer(string $answer): bool
+    {
+        return in_array(strtolower(trim($answer)), ['y', 'yes'], true);
     }
 }

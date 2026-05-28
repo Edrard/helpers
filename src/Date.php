@@ -11,7 +11,13 @@ final class Date
      */
     public static function today(): int
     {
-        return strtotime(date('Y-m-d'));
+        $timestamp = strtotime('today');
+
+        if ($timestamp === false) {
+            throw new \RuntimeException('Unable to create today timestamp.');
+        }
+
+        return $timestamp;
     }
 
     /**
@@ -21,6 +27,6 @@ final class Date
      */
     public static function now(): int
     {
-        return strtotime(date('Y-m-d H:i:s'));
+        return time();
     }
 }
