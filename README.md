@@ -12,7 +12,7 @@ This package is a modernized replacement for older global helper functions. It u
 Some methods use optional PHP extensions when available:
 
 - `intl` for higher-quality transliteration in `Str::translit_string()`
-- `gmp` for `Bit::gmp_shiftl()` and `Bit::gmp_shiftr()`
+- `gmp` for big-number shifts in `Bit::gmp_shiftl()` and `Bit::gmp_shiftr()`; PHP integer shifts are used as a fallback
 
 ## Installation
 
@@ -47,7 +47,7 @@ use Edrard\Helpers\Url;
 
 $indexed = Arr::array_resort($rows, 'id');
 $slug = Str::string_slug('Hello world');
-$url = Url::fix_url('/page', 'https://example.com');
+$url = Url::fix_url('/page', 'https', 'example.com');
 ```
 
 ## Global Debug Functions
@@ -67,38 +67,38 @@ Array utilities.
 
 | Method | Description |
 | --- | --- |
-| `array_resort_by_mergetwo(array $array, int|string $param_1, int|string $param_2, string $del = ''): array` | Reindexes rows using two fields joined by a delimiter. |
+| `array_resort_by_mergetwo(array $array, int|string $param_1, int|string $param_2, string $del = '', bool $strict = true): array` | Reindexes rows using two fields joined by a delimiter. |
 | `array_preg_match_bool(array $pattern_array, string $subject, int $flags = 0, int $offset = 0): bool` | Returns true when any regex pattern matches the subject. |
-| `array_recursive_search(mixed $needle, array $haystack): int|string|false` | Searches nested arrays and returns the first matching key. |
+| `array_recursive_search(mixed $needle, array $haystack): int|string|false` | Searches nested arrays and returns the containing top-level key. |
 | `array_unite_or_split_by_key(array $array): array` | Transposes nested arrays by moving inner keys to the top level. |
 | `array_first_element(array $array): int|string|null` | Returns the first key of an array. |
 | `array_last_element(array $array): int|string|null` | Returns the last key of an array. |
-| `array_resort(array $array, int|string $param): array` | Reindexes rows by an item field or object property. |
-| `array_resort_multi(array $array, int|string $param): array` | Groups rows by an item field or object property. |
-| `array_resort_by_two(array $array, int|string $param, int|string $param2 = ''): array` | Groups rows by one key or indexes by two nested keys. |
-| `array_resort_empty(array $array, int|string $param): array` | Builds an array indexed by a field and filled with empty strings. |
-| `array_rename(array &$array, int|string $name, int|string $rename): array` | Renames an array key while preserving its value. |
+| `array_resort(array $array, int|string $param, bool $strict = false): array` | Reindexes rows by an item field or object property. |
+| `array_resort_multi(array $array, int|string $param, bool $strict = false): array` | Groups rows by an item field or object property. |
+| `array_resort_by_two(array $array, int|string $param, int|string|null $param2 = null, bool $strict = false): array` | Groups rows by one key or indexes by two nested keys. |
+| `array_resort_empty(array $array, int|string $param, bool $strict = false): array` | Builds an array indexed by a field and filled with empty strings. |
+| `array_rename(array &$array, int|string $name, int|string $rename, bool $rewrite = true): array` | Renames an array key while preserving its value. |
 | `array_copy_value_to_key(array $array): array` | Uses each value as both key and value. |
 | `array_copy_key_to_value(array $array): array` | Replaces each value with its key. |
-| `array_special_merge(mixed $array1, mixed $array2): array` | Merges arrays while preserving existing keys from the first array. |
+| `array_special_merge(array $array1, array $array2): array` | Merges arrays while preserving existing keys from the first array. |
 | `array_special_merge_samein(array $array1, array $array2): array` | Merges arrays and collects duplicate-key values into arrays. |
 | `array_special_merge_samere(array $array1, array $array2, string $prefix = 'second_'): array` | Merges arrays and prefixes duplicate keys from the second array. |
-| `empty_obj(array|object $obj): bool` | Checks whether an array or object has no values. |
+| `empty_obj(array|object $obj): bool` | Checks whether an array or object yields no public values. |
 | `array_conv_numeric(array $array): array` | Casts all array values to integers. |
 | `array_sum_recursive(array $array): int|float` | Sums numeric values in a nested array. |
 | `array_insert_after_key(array $array, mixed $insert, int|string $skey, int|string $wkey = ''): array` | Inserts a value after a given key. |
 | `array_clean_empty_value(?array $array, bool $use_keys = false): ?array` | Removes empty scalar values from an array. |
-| `flatten_array(array $array, string $separator = '_', string $prefix = ''): array` | Flattens a nested array. |
+| `flatten_array(array $array, string $separator = '_', string $prefix = '', bool $strict = true): array` | Flattens a nested array and can reject duplicate flattened keys. |
 | `unflatten_array(array $flatArray, string $separator = '_'): array` | Expands a flattened array back into a nested array. |
 
 ### `Edrard\Helpers\Bit`
 
-Bit helpers for GMP values.
+Bit helpers for GMP values or PHP integers.
 
 | Method | Description |
 | --- | --- |
-| `gmp_shiftl(mixed $x, int $n): mixed` | Shifts a GMP number left. |
-| `gmp_shiftr(mixed $x, int $n): mixed` | Shifts a GMP number right. |
+| `gmp_shiftl(mixed $x, int $n): mixed` | Shifts a number left using GMP when available, or PHP integers otherwise. |
+| `gmp_shiftr(mixed $x, int $n): mixed` | Shifts a number right using GMP when available, or PHP integers otherwise. |
 
 ### `Edrard\Helpers\Cli`
 
@@ -107,6 +107,7 @@ CLI helpers.
 | Method | Description |
 | --- | --- |
 | `cli_confirm(string $text, string $thanks, string $error): void` | Asks for interactive confirmation and exits when declined. |
+| `is_confirmed_answer(string $answer): bool` | Checks whether a CLI answer confirms an action. |
 
 ### `Edrard\Helpers\Date`
 
@@ -125,6 +126,14 @@ Runtime/environment helpers.
 | --- | --- |
 | `is_function_available(string $func): bool` | Checks whether a PHP function exists and is not disabled in php.ini. |
 
+### `Edrard\Helpers\Form`
+
+Form helpers.
+
+| Method | Description |
+| --- | --- |
+| `form_converter(array $data, callable $func, string $name = 'name', string $value = 'value', bool $strict = true): array` | Converts flat form-like rows into grouped records using a parser callback. |
+
 ### `Edrard\Helpers\Json`
 
 JSON helpers.
@@ -132,9 +141,8 @@ JSON helpers.
 | Method | Description |
 | --- | --- |
 | `json_indent(string $json): string` | Formats a JSON string with indentation. |
-| `is_json(string $string): bool` | Checks whether a string contains valid JSON. |
-| `json_form_converter(array $data, Closure $func, string $name = 'name', string $value = 'value'): array` | Converts flat form-like data into grouped data using a parser callback. |
-| `json_validate(string $string, bool $array = false): mixed` | Decodes JSON or returns a readable validation error message. |
+| `is_json(string $string, bool $onlyContainer = false): bool` | Checks whether a string contains valid JSON, optionally only objects and arrays. |
+| `json_validate(string $string, bool $array = false): mixed` | Decodes JSON or throws an exception when it is invalid. |
 
 ### `Edrard\Helpers\Obj`
 
@@ -151,7 +159,7 @@ Shell helpers.
 | Method | Description |
 | --- | --- |
 | `shell_command_exist(string $cmd): bool` | Checks whether a shell command exists. |
-| `shell_command_run(string $command, string $param): void` | Executes a shell command with one escaped parameter. |
+| `shell_command_run(string $command, string $param, bool $returnOutput = false): int|array` | Executes a trusted shell command with one escaped parameter. |
 
 ### `Edrard\Helpers\Str`
 
@@ -167,13 +175,13 @@ String helpers.
 | `string_encodestring(string $st, string $tran = 'en', string $base = 'ru'): string` | Transliterates and encodes text for HTML output. |
 | `mb_ucfirst(string $string, string $encoding = 'utf-8'): string` | Uppercases the first multibyte character. |
 | `string_rspec(string $str, bool $white = true, string|false $add = false, string $replace = ''): string` | Removes or replaces characters outside the allowed word-character set. |
-| `preg_non_word(): string` | Returns a regex character class fragment for word-like characters. |
+| `latin_cyrillic_digit_character_class(): string` | Returns a regex character class fragment for latin letters, Cyrillic letters, and digits. |
 | `string_file_name(string $name): string` | Cleans a string for filename usage. |
 | `string_slug(string $str, string $del = '-'): string` | Creates a simple URL slug. |
 | `string_truncate(string $text, int $length = 100, string|array $ending = '...', bool $exact = true, bool $considerHtml = false, bool $insert = false): string` | Truncates a string, optionally preserving HTML. |
-| `path_to_class(array $paths): array` | Converts file paths to class-like PSR-4 path fragments. |
-| `string_split_last(string $string, string $def = '\\'): string` | Returns the last segment from a delimited string. |
-| `string_split_first(string $string, string $def = '\\'): string` | Returns the first segment from a delimited string. |
+| `path_to_class(array $paths, bool $studlyCase = false): array` | Converts file paths to PSR-4 class-like path fragments. |
+| `string_split_last(string $string, string $delimiter = '\\'): string` | Returns the last segment from a delimited string. |
+| `string_split_first(string $string, string $delimiter = '\\'): string` | Returns the first segment from a delimited string. |
 | `mb_wordwrap(string $str, int $width = 75, string $break = "\n", bool $cut = true): string` | Multibyte-safe word wrap. |
 | `heartgen(int $num = 3): string` | Generates a repeated heart marker. |
 | `camel_case(string $input, string $separator = '_'): string` | Converts a string to camel case. |
@@ -187,9 +195,9 @@ URL helpers.
 | --- | --- |
 | `url_unparse(array $parsed): string` | Builds a URL string from `parse_url()` parts. |
 | `url_unparse_proxy(array $proxy): string` | Builds a proxy address from proxy and port fields. |
-| `fix_url(string $url, string $add): string` | Adds a base URL when the given URL is relative. |
+| `fix_url(string $url, string $protocol = 'http', string $domain = ''): string` | Fixes a URL by applying a protocol and optional domain. |
 | `url_title(string $str, string $separator = '-', bool $lowercase = true): string` | Converts text into a URL-safe title. |
-| `encodestring(string $st, string $tran = 'en'): string` | Transliterates text for URL helpers. |
+| `encodestring(string $st, string $tran = 'en'): string` | Legacy proxy for transliteration and HTML encoding. |
 | `hypnes_ru_url(string $string): string` | Builds a hyphenated Cyrillic URL slug. |
 
 ## License
