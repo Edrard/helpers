@@ -12,11 +12,15 @@ final class Str
      */
     public static function string_quotes_change(mixed $string): mixed
     {
-        if (! is_string($string)) {
+        if (!is_string($string)) {
             return $string;
         }
 
-        return str_replace(["\u{201C}", "\u{201D}", "\u{00AB}", "\u{00BB}"], '"', $string);
+        return str_replace(
+            ["\u{201C}", "\u{201D}", "\u{00AB}", "\u{00BB}"],
+            '"',
+            $string
+        );
     }
 
     /**
@@ -38,7 +42,7 @@ final class Str
      */
     public static function string_only_latin(string $input_line): bool
     {
-        return preg_match('/^[\w\d\s\p{P}]*$/u', $input_line) === 1;
+        return preg_match('/^[A-Za-z0-9_\s\p{P}]*$/u', $input_line) === 1;
     }
 
     /**
@@ -97,11 +101,14 @@ final class Str
      */
     public static function mb_ucfirst(string $string, string $encoding = 'utf-8'): string
     {
-        $strlen = mb_strlen($string, $encoding);
-        $firstChar = mb_substr($string, 0, 1, $encoding);
-        $then = mb_substr($string, 1, $strlen - 1, $encoding);
+        if ($string === '') {
+            return '';
+        }
 
-        return mb_strtoupper($firstChar, $encoding) . $then;
+        $firstChar = mb_substr($string, 0, 1, $encoding);
+        $rest = mb_substr($string, 1, null, $encoding);
+
+        return mb_strtoupper($firstChar, $encoding) . $rest;
     }
 
     /**
@@ -113,21 +120,36 @@ final class Str
      * @param string $replace Replacement for removed characters.
      * @return string Cleaned string.
      */
-    public static function string_rspec(string $str, bool $white = true, string|false $add = false, string $replace = ''): string
+    public static function string_rspec(
+        string $str,
+        bool $white = true,
+        string|false $add = false,
+        string $replace = ''
+    ): string
     {
-        $main = self::preg_non_word();
-        $main = $white !== false ? $main . '\\s' : $main;
-        $main = $add !== false ? $main . preg_quote($add, '/') : $main;
+        $allowedCharacters = self::latin_cyrillic_digit_character_class();
 
-        return preg_replace('/[^' . $main . ']/iu', $replace, htmlspecialchars_decode($str, ENT_QUOTES)) ?? '';
+        if ($white) {
+            $allowedCharacters .= '\\s';
+        }
+
+        if ($add !== false) {
+            $allowedCharacters .= preg_quote($add, '/');
+        }
+
+        return preg_replace(
+            '/[^' . $allowedCharacters . ']/iu',
+            $replace,
+            htmlspecialchars_decode($str, ENT_QUOTES)
+        ) ?? '';
     }
 
     /**
-     * Return a regex character class fragment for word-like latin and Cyrillic characters.
+     * Return a regex character class fragment for latin letters, Cyrillic letters, and digits.
      *
      * @return string Regex character class fragment.
      */
-    public static function preg_non_word(): string
+    public static function latin_cyrillic_digit_character_class(): string
     {
         return '0-9A-Za-z\\p{Cyrillic}';
     }
@@ -141,7 +163,8 @@ final class Str
     public static function string_file_name(string $name): string
     {
         $name = preg_replace('/\s+/', '-', $name) ?? $name;
-        $name = preg_replace('/[^0-9A-Za-z\p{Cyrillic}\-_]/u', '', $name) ?? $name;
+        $allowedCharacters = self::latin_cyrillic_digit_character_class() . '\\-_';
+        $name = preg_replace('/[^' . $allowedCharacters . ']/u', '', $name) ?? $name;
 
         return trim($name, ".-_\t\n\r\0\x0B");
     }
@@ -155,17 +178,26 @@ final class Str
      */
     public static function string_slug(string $str, string $del = '-'): string
     {
-        $preg = '\\' . $del;
-        $encoded = self::translit_string(trim($str));
+        if ($del === '') {
+            throw new \InvalidArgumentException('Slug delimiter cannot be empty.');
+        }
 
-        return mb_strtolower(preg_replace('#[^A-Za-z0-9' . $preg . ']#iu', '', str_replace(' ', $del, $encoded)) ?? '');
+        $encoded = self::translit_string(trim($str));
+        $delimiter = preg_quote($del, '#');
+
+        $slug = preg_replace('/\s+/u', $del, $encoded) ?? '';
+        $slug = preg_replace('#[^A-Za-z0-9' . $delimiter . ']#u', '', $slug) ?? '';
+        $slug = preg_replace('#(?:' . $delimiter . ')+#u', $del, $slug) ?? '';
+        $slug = preg_replace('#^(?:' . $delimiter . ')+|(?:' . $delimiter . ')+$#u', '', $slug) ?? '';
+
+        return mb_strtolower($slug);
     }
 
     /**
      * Truncate a string, optionally preserving HTML tags.
      *
      * @param string $text Source text.
-     * @param int $length Maximum length.
+     * @param int $length Number of visible source text characters to keep before ending.
      * @param string|array<string, mixed> $ending Ending string or legacy options array.
      * @param bool $exact Whether to cut exactly at the requested length.
      * @param bool $considerHtml Whether to preserve HTML tag structure.
@@ -179,7 +211,12 @@ final class Str
         bool $exact = true,
         bool $considerHtml = false,
         bool $insert = false
-    ): string {
+    ): string
+    {
+        if ($length < 0) {
+            throw new \InvalidArgumentException('Truncate length cannot be negative.');
+        }
+
         if (is_array($ending)) {
             $exact = (bool) ($ending['exact'] ?? $exact);
             $considerHtml = (bool) ($ending['considerHtml'] ?? $considerHtml);
@@ -196,12 +233,12 @@ final class Str
                 return $text;
             }
 
-            $totalLength = mb_strlen($ending);
+            $totalLength = 0;
             $truncate = '';
             preg_match_all('/(<\/?([\w+]+)[^>]*>)?([^<>]*)/', $text, $tags, PREG_SET_ORDER);
 
             foreach ($tags as $tag) {
-                if (! preg_match('/img|br|input|hr|area|base|basefont|col|frame|isindex|link|meta|param|source/s', $tag[2] ?? '')) {
+                if (!preg_match('/img|br|input|hr|area|base|basefont|col|frame|isindex|link|meta|param|source/s', $tag[2] ?? '')) {
                     if (preg_match('/<[\w]+[^>]*>/s', $tag[0])) {
                         array_unshift($openTags, $tag[2]);
                     } elseif (preg_match('/<\/([\w]+)[^>]*>/s', $tag[0], $closeTag)) {
@@ -245,21 +282,21 @@ final class Str
                 return $text;
             }
 
-            $truncate = mb_substr($text, 0, $length - strlen($ending));
+            $truncate = mb_substr($text, 0, $length);
         }
 
         if ($insert !== false) {
             $endlost = str_replace($truncate, '', $text);
         }
 
-        if (! $exact) {
+        if (!$exact) {
             $spacepos = mb_strrpos($truncate, ' ');
             if ($spacepos !== false) {
                 if ($considerHtml) {
                     $bits = mb_substr($truncate, $spacepos);
                     preg_match_all('/<\/([a-z]+)>/', $bits, $droppedTags, PREG_SET_ORDER);
                     foreach ($droppedTags as $closingTag) {
-                        if (! in_array($closingTag[1], $openTags, true)) {
+                        if (!in_array($closingTag[1], $openTags, true)) {
                             array_unshift($openTags, $closingTag[1]);
                         }
                     }
@@ -282,48 +319,80 @@ final class Str
     }
 
     /**
-     * Convert file paths to class-like PSR-4 path fragments.
+     * Convert file paths to PSR-4 class-like path fragments.
      *
      * @param array<int, string> $paths Paths to convert.
+     * @param bool $studlyCase Whether to convert each path segment to StudlyCase.
      * @return array<int, string> Converted class path fragments.
      */
-    public static function path_to_class(array $paths): array
+    public static function path_to_class(array $paths, bool $studlyCase = false): array
     {
-        $return = [];
-        foreach ($paths as $p) {
-            $tmp = explode('.', ucfirst($p));
-            $return[] = str_replace('/', '\\', '/' . $tmp[0]);
+        $classes = [];
+
+        foreach ($paths as $path) {
+            $normalizedPath = str_replace('\\', '/', $path);
+            $pathWithoutExtension = preg_replace('/\.php$/i', '', $normalizedPath) ?? $normalizedPath;
+            $pathWithoutExtension = trim($pathWithoutExtension, '/');
+
+            if ($pathWithoutExtension === '') {
+                continue;
+            }
+
+            if ($studlyCase) {
+                $pathWithoutExtension = self::studly_path($pathWithoutExtension);
+            }
+
+            $classes[] = str_replace('/', '\\', $pathWithoutExtension);
         }
 
-        return $return;
+        return $classes;
+    }
+
+    private static function studly_path(string $path): string
+    {
+        $segments = explode('/', $path);
+
+        foreach ($segments as $key => $segment) {
+            $segments[$key] = self::mb_ucfirst(self::camel_case($segment, '_'));
+        }
+
+        return implode('/', $segments);
     }
 
     /**
      * Return the last segment from a delimited string.
      *
      * @param string $string Source string.
-     * @param string $def Delimiter.
+     * @param string $delimiter Delimiter.
      * @return string Last segment.
      */
-    public static function string_split_last(string $string, string $def = '\\'): string
+    public static function string_split_last(string $string, string $delimiter = '\\'): string
     {
-        $tmp = explode($def, trim($string, $def));
+        if ($delimiter === '') {
+            throw new \InvalidArgumentException('Delimiter cannot be empty.');
+        }
 
-        return (string) array_pop($tmp);
+        $parts = explode($delimiter, trim($string, $delimiter));
+
+        return (string) array_pop($parts);
     }
 
     /**
      * Return the first segment from a delimited string.
      *
      * @param string $string Source string.
-     * @param string $def Delimiter.
+     * @param string $delimiter Delimiter.
      * @return string First segment.
      */
-    public static function string_split_first(string $string, string $def = '\\'): string
+    public static function string_split_first(string $string, string $delimiter = '\\'): string
     {
-        $tmp = explode($def, trim($string, $def));
+        if ($delimiter === '') {
+            throw new \InvalidArgumentException('Delimiter cannot be empty.');
+        }
 
-        return (string) array_shift($tmp);
+        $parts = explode($delimiter, trim($string, $delimiter));
+
+        return (string) array_shift($parts);
     }
 
     /**
@@ -337,16 +406,25 @@ final class Str
      */
     public static function mb_wordwrap(string $str, int $width = 75, string $break = "\n", bool $cut = true): string
     {
+        if ($width <= 0) {
+            throw new \InvalidArgumentException('Word wrap width must be greater than zero.');
+        }
+
+        if ($break === '') {
+            throw new \InvalidArgumentException('Word wrap break cannot be empty.');
+        }
+
         $lines = explode($break, $str);
 
-        foreach ($lines as &$line) {
+        foreach ($lines as $key => $line) {
             $line = rtrim($line);
             if (mb_strlen($line) <= $width) {
+                $lines[$key] = $line;
                 continue;
             }
 
             $words = explode(' ', $line);
-            $line = '';
+            $wrappedLine = '';
             $actual = '';
 
             foreach ($words as $word) {
@@ -356,13 +434,13 @@ final class Str
                 }
 
                 if ($actual !== '') {
-                    $line .= rtrim($actual) . $break;
+                    $wrappedLine .= rtrim($actual) . $break;
                 }
 
                 $actual = $word;
                 if ($cut) {
                     while (mb_strlen($actual) > $width) {
-                        $line .= mb_substr($actual, 0, $width) . $break;
+                        $wrappedLine .= mb_substr($actual, 0, $width) . $break;
                         $actual = mb_substr($actual, $width);
                     }
                 }
@@ -370,9 +448,8 @@ final class Str
                 $actual .= ' ';
             }
 
-            $line .= trim($actual);
+            $lines[$key] = $wrappedLine . trim($actual);
         }
-        unset($line);
 
         return implode($break, $lines);
     }
@@ -397,6 +474,10 @@ final class Str
      */
     public static function camel_case(string $input, string $separator = '_'): string
     {
+        if ($separator === '') {
+            throw new \InvalidArgumentException('Camel case separator cannot be empty.');
+        }
+
         return lcfirst(str_replace($separator, '', ucwords($input, $separator)));
     }
 
