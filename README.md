@@ -16,11 +16,30 @@ Some methods use optional PHP extensions when available:
 
 ## Installation
 
-```bash
-composer require edrard/helpers
+This package is installed from Git, not Packagist.
+
+Add the repository to the consuming project's `composer.json`:
+
+```json
+{
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/Edrard/helpers.git"
+    }
+  ],
+  "require": {
+    "edrard/helpers": "^1.1"
+  }
+}
 ```
 
-For local development before the package is published, add a path or VCS repository to your consuming project and require `edrard/helpers` from there.
+Or configure it with Composer commands:
+
+```bash
+composer config repositories.edrard-helpers vcs https://github.com/Edrard/helpers.git
+composer require edrard/helpers:^1.1
+```
 
 ## Autoloading
 
