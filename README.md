@@ -29,7 +29,7 @@ Add the repository to the consuming project's `composer.json`:
     }
   ],
   "require": {
-    "edrard/helpers": "^1.1"
+    "edrard/helpers": "^1.2"
   }
 }
 ```
@@ -38,7 +38,7 @@ Or configure it with Composer commands:
 
 ```bash
 composer config repositories.edrard-helpers vcs https://github.com/Edrard/helpers.git
-composer require edrard/helpers:^1.1
+composer require edrard/helpers:^1.2
 ```
 
 ## Autoloading
@@ -63,10 +63,14 @@ functions/debug.php
 use Edrard\Helpers\Arr;
 use Edrard\Helpers\Str;
 use Edrard\Helpers\Url;
+use Edrard\Helpers\Variable;
 
 $indexed = Arr::array_resort($rows, 'id');
 $slug = Str::string_slug('Hello world');
 $url = Url::fix_url('/page', 'https', 'example.com');
+$query = Variable::get(['page', 'search']);
+$allQuery = Variable::get('*', static fn (array $data): array => array_map('trim', $data));
+$server = Variable::serverStrings();
 ```
 
 ## Global Debug Functions
@@ -205,6 +209,28 @@ String helpers.
 | `heartgen(int $num = 3): string` | Generates a repeated heart marker. |
 | `camel_case(string $input, string $separator = '_'): string` | Converts a string to camel case. |
 | `snake_case(string $input): string` | Converts a string to snake case. |
+
+### `Edrard\Helpers\Variable`
+
+Superglobal helpers with typed access, `*` support for full reads, and an optional mapper callback.
+
+| Method | Description |
+| --- | --- |
+| `get(string|array $keys = '*', ?callable $mapper = null): array` | Reads selected values from `$_GET`. |
+| `post(string|array $keys = '*', ?callable $mapper = null): array` | Reads selected values from `$_POST`. |
+| `request(string|array $keys = '*', ?callable $mapper = null): array` | Reads selected values from `$_REQUEST`. |
+| `cookie(string|array $keys = '*', ?callable $mapper = null): array` | Reads selected values from `$_COOKIE`. |
+| `server(string|array $keys = '*', ?callable $mapper = null): array` | Reads selected values from `$_SERVER`. |
+| `serverStrings(): array` | Reads `$_SERVER` with only string keys and string values. |
+| `files(string|array $keys = '*', ?callable $mapper = null): array` | Reads selected values from `$_FILES`. |
+| `env(string|array $keys = '*', ?callable $mapper = null): array` | Reads selected values from `$_ENV`. |
+| `session(string|array $keys = '*', ?callable $mapper = null): array` | Reads selected values from `$_SESSION` when present. |
+| `from(string $source, string|array $keys = '*', ?callable $mapper = null): array` | Reads selected values from a named superglobal. |
+| `getLast(): array` | Returns the last selected value set. |
+| `reset(): void` | Clears the last selected value set. |
+| `resset(): void` | Legacy misspelled alias for `reset()`. |
+
+The mapper callback receives the selected array and must return an array. Compatibility dynamic calls such as `Variable::Get('name')` and `Variable::Cookie(['token'])` remain supported.
 
 ### `Edrard\Helpers\Url`
 
